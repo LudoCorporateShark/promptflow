@@ -1,3 +1,5 @@
+environment:
+  python_requirements_txt: requirements.txt
 inputs:
   url:
     type: string
@@ -21,7 +23,7 @@ nodes:
     type: code
     path: fetch_text_content_from_url.py
   inputs:
-    url: "${inputs.url}"
+    url: ${inputs.url}
   aggregation: false
 - name: prepare_examples
   type: python
@@ -36,15 +38,15 @@ nodes:
     type: code
     path: classify_with_llm.jinja2
   inputs:
-    deployment_name: "gpt-35-turbo"
-    model: "gpt-3.5-turbo"
+    deployment_name: gpt-35-turbo
+    model: gpt-3.5-turbo
     max_tokens: 128
     temperature: 0.2
-    url: "${inputs.url}"
-    text_content: "${summarize_text_content.output}"
-    examples: "${prepare_examples.output}"
-  api: chat
-  connection: open_ai_connection
+    url: ${inputs.url}
+    text_content: ${summarize_text_content.output}
+    examples: ${prepare_examples.output}
+  connection: azure_open_ai_connection
+  api: completion
   aggregation: false
 - name: convert_to_dict
   type: python
@@ -52,7 +54,7 @@ nodes:
     type: code
     path: convert_to_dict.py
   inputs:
-    input_str: "${classify_with_llm.output}"
+    input_str: ${classify_with_llm.output}
   aggregation: false
 - name: summarize_text_content
   type: llm
@@ -60,13 +62,11 @@ nodes:
     type: code
     path: summarize_text_content.jinja2
   inputs:
-    deployment_name: "gpt-35-turbo"
-    model: "gpt-3.5-turbo"
+    deployment_name: gpt-35-turbo
+    model: gpt-3.5-turbo
     max_tokens: 128
     temperature: 0.2
-    text: "${fetch_text_content_from_url.output}"
+    text: ${fetch_text_content_from_url.output}
+  connection: azure_open_ai_connection
   api: chat
-  connection: open_ai_connection
   aggregation: false
-environment:
-  python_requirements_txt: requirements.txt

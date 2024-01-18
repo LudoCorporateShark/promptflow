@@ -1,0 +1,9 @@
+tests:
+  - name: web-classification_default_20240118_190646_349000
+    display_name: web-classification_${variant_id}_${timestamp}
+    flow: d:\CodeBase Docs\Document
+      Intelligence\promptflow\examples\flows\standard\web-classification
+    data: d:\CodeBase Docs\Document
+      Intelligence\promptflow\examples\flows\standard\web-classification\data.jsonl
+    column_mapping:
+      url: ${data.url}
