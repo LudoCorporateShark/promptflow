@@ -41,7 +41,7 @@ To get started quickly, you can use a pre-built development environment. **Click
 
 If you want to get started in your local environment, first install the packages:
 
-Ensure you have a python environment, `python=3.9` is recommended.
+Ensure you have a python environment, `python>=3.9, <=3.11` is recommended.
 
 ```sh
 pip install promptflow promptflow-tools
@@ -99,13 +99,13 @@ Prompt flow is a tool designed to **build high quality LLM apps**, the developme
 
 We also offer a VS Code extension (a flow designer) for an interactive flow development experience with UI.
 
-<img src="examples/tutorials/quick-start/media/vsc.png" alt="vsc" width="1000"/>
+<img src="docs/media/readme/vsc.png" alt="vsc" width="1000"/>
 
 You can install it from the <a href="https://marketplace.visualstudio.com/items?itemName=prompt-flow.prompt-flow">visualstudio marketplace</a>.
 
 #### Deep delve into flow development
 
-[Getting started with prompt flow](https://microsoft.github.io/promptflow/how-to-guides/quick-start.html): A step by step guidance to invoke your first flow run.
+[Getting started with prompt flow](./docs/how-to-guides/quick-start.md): A step by step guidance to invoke your first flow run.
 
 ### Learn from use cases
 
