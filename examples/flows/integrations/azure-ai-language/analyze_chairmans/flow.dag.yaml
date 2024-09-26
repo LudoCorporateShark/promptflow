@@ -2,25 +2,19 @@ $schema: https://azuremlschemas.azureedge.net/promptflow/latest/Flow.schema.json
 environment:
   python_requirements_txt: requirements.txt
 inputs:
-  document_path:
+  proxy_path:
     type: string
-    default: ./document1.txt
-  language:
+    default: ./JOHANNA DOE_CreditfixLtd_B6150498 - PROXY LETTER.txt
+  chairmans_path:
     type: string
-    default: en
+    default: ./JOHANNA DOE_B6150498 - CHAIRMANS REPORT.txt
 outputs:
-  extractive_summary:
-    type: string
-    reference: ${Extractive_Summarization.output}
-  abstractive_summary:
-    type: string
-    reference: ${Abstractive_Summarization.output}
-  sentiment:
-    type: string
-    reference: ${Sentiment_Analysis.output}
   recognized_entities:
     type: string
     reference: ${Entity_Recognition.output}
+  Semantic_analysis:
+   type: string
+   reference: ${Semantic_Analysis.output}
 nodes:
 - name: Read_File
   type: python
@@ -28,7 +22,8 @@ nodes:
     type: code
     path: read_file.py
   inputs:
-    file_path: ${inputs.document_path}
+    file_path: ${inputs.proxy_path}
+    file_path: ${inputs.chairmans_path}
 - name: Translator
   type: python
   source:

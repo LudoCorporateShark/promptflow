@@ -25,7 +25,7 @@ nodes:
     max_tokens: 256
     temperature: 0.7
     question: ${inputs.utterance}
-  connection: CLUGPTModel
+  connection: azure_open_ai_connection
   api: chat
 - name: Conversational_Language_Understanding
   type: python
