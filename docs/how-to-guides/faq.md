@@ -6,7 +6,7 @@
 
 Prompt flow provides both stable and experimental features in the same SDK.
 
-|Feature status | Description | 
+|Feature status | Description |
 |----------------|----------------|
 Stable features	| **Production ready** <br/><br/> These features are recommended for most use cases and production environments. They are updated less frequently then experimental features.|
 Experimental features | **Developmental**  <br/><br/> These features are newly developed capabilities & updates that may not be ready or fully tested for production usage. While the features are typically functional, they can include some breaking changes. Experimental features are used to iron out SDK breaking bugs, and will only receive updates for the duration of the testing period. Experimental features are also referred to as features that are in **preview**. <br/> As the name indicates, the experimental (preview) features are for experimenting and is **not considered bug free or stable**. For this reason, we only recommend experimental features to advanced users who wish to try out early versions of capabilities and updates, and intend to participate in the reporting of bugs and glitches.
@@ -18,10 +18,32 @@ Please use the following command to upgrade promptflow for openai 1.x support:
 pip install promptflow>=1.1.0
 pip install promptflow-tools>=1.0.0
 ```
-Note that the command above will upgrade your openai package a version later than 1.0.0, 
+Note that the command above will upgrade your openai package a version later than 1.0.0,
 which may introduce breaking changes to custom tool code.
 
 Reach [OpenAI migration guide](https://github.com/openai/openai-python/discussions/742) for more details.
+
+### Promptflow 1.8.0 upgrade guide
+Before upgrading to promptflow version 1.8.0 or later, it's important to first uninstall any existing installations of promptflow and its sub-packages.
+This ensures a clean installation of the new version without any conflicts.
+```bash
+pip uninstall -y promptflow promptflow-core promptflow-devkit promptflow-azure # uninstall promptflow and its sub-packages
+pip install 'promptflow>=1.8.0' # install promptflow version 1.8.0 or later
+```
+
+Reason for 'pip install promptflow>=1.8.0' or 'pf upgrade' directly not working:
+
+`promptflow` package has been split into multiple packages. When installing `promptflow`, you will get the following packages:
+  - `promptflow`:
+    - `promptflow-tracing`: Tracing capability for promptflow.
+    - `promptflow-core`: Core functionality to run flow.
+    - `promptflow-devkit`: Development kit for promptflow.
+    - `promptflow-azure`: Azure extra requires(`promptflow[azure]`) for promptflow to integrate with Azure.
+
+When upgrading promptflow from an existing version to promptflow 1.8.0, pip will remove the old promptflow after installing promptflow subpackages,
+which caused subpackage files got wrongly removed.
+
+![upgrade-wrongly-remove](../media/how-to-guides/upgrade-error.png)
 
 ## Troubleshooting ##
 
@@ -58,7 +80,7 @@ This is often due to outdated cache. To refresh the tool list and make newly ins
 
 2. Bring up the command palette by pressing "Ctrl+Shift+P".
 
-3. Type and select the "Developer: Reload Webviews" command. 
+3. Type and select the "Developer: Reload Webviews" command.
 
 4. Wait a moment for the tool list refreshing.
 
@@ -76,21 +98,32 @@ Compare to the serving logs with `WARNING` level:
 
 ![img](../media/how-to-guides/pf_logging_level_warning.png)
 
+
+### Set logging format
+
+Promptflow uses the following log format and datetime format by default:
+
+- Log format: `%(asctime)s %(process)7d %(name)-18s %(levelname)-8s %(message)s`
+- Datetime format: `%Y-%m-%d %H:%M:%S %z`
+
+You can customize the log format with the `PF_LOG_FORMAT` environment variable, and the datetime format with `PF_LOG_DATETIME_FORMAT`. These variables can also be defined in a flow yaml file or set directly in the environment.
+
+
 ### Set environment variables
 
 Currently, promptflow supports the following environment variables:
 
-**PF_WORKER_COUNT** 
+**PF_WORKER_COUNT**
 
-Valid for batch run only. The number of workers to use for parallel execution of the Flow.
+Effective for batch run only, count of parallel workers in batch run execution.
 
-Default value is 16. If you have large number of batch run date row count, and want more efficiency, you can increase the PF_WORKER_COUNT to improve the batch run concurrency, make it run faster.
+The default value is 4 (was 16 when promptflow<1.4.0)
 
-When you modify the concurrency, please consider 2 points:
+Please take the following points into consideration when changing it:
 
-First, the concurrency should be not bigger than your batch run data row count.  If not, meaning if the concurrency is bigger, it will run slower due to the time taken for process startup and shutdown.
+1. The concurrency should not exceed the total data rows count. Otherwise, the execution may slow down due to additional time spent on process startup and shutdown.
 
-Second, your batch run risks to fail due to rate limit of your LLM endpoint, in this case you need to set up PF_WORKER_COUNT to a smaller number. Take Azure OpenAI endpoint as example, you can go to Azure OpenAI Studio, navigate to Deployment tab, check out the capacity of your endpoints. Then you can refer to this expression to set up the concurrency.
+2. High parallelism may cause the underlying API call to reach the rate limit of your LLM endpoint. In which case you can decrease the `PF_WORKER_COUNT` or increase the rate limit. Please refer to [this doc](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/quota) on quota management. Then you can refer to this expression to set up the concurrency.
 
 ```
 PF_WORKER_COUNT <= TPM * duration_seconds / token_count / 60
@@ -106,28 +139,51 @@ For example, if your endpoint TPM (token per minute) is 50K, the single flow run
 
 **PF_BATCH_METHOD**
 
-Valid for batch run only. Optional values: 'spawn', 'fork'. 
+Valid for batch run only. Optional values: 'spawn', 'fork'.
 
 **spawn**
 
 1. The child processes will not inherit resources of the parent process, therefore, each process needs to reinitialize the resources required for the flow, which may use more system memory.
 
 2. Starting a process is slow because it will take some time to initialize the necessary resources.
- 
+
 **fork**
 
 1. Use the copy-on-write mechanism, the child processes will inherit all the resources of the parent process, thereby using less system memory.
 
 2. The process starts faster as it doesn't need to reinitialize resources.
- 
+
 Note: Windows only supports spawn, Linux and macOS support both spawn and fork.
 
 
-#### You can configure environment variables in the following ways
+#### How to configure environment variables
 
-1. If you are using CLI, you can use this parameter: ```--environment-variable```. Example: ```--environment-variable PF_WORKER_COUNT="2" PF_BATCH_METHOD="spawn"```.
+1. Configure environment variables in ```flow.dag.yaml```. Example:
+```
+    inputs: []
+    outputs: []
+    nodes: []
+    environment_variables:
+      PF_WORKER_COUNT: 2
+      PF_BATCH_METHOD: "spawn"
+      MY_CUSTOM_SETTING: my_custom_value
+```
 
-2. If you are using SDK, you can specify environment variables when creating run. Example: 
+2. Specify environment variables when submitting runs.
+
+::::{tab-set}
+:::{tab-item} CLI
+:sync: CLI
+
+Use this parameter: ```--environment-variable``` to specify environment variables.
+Example: ```--environment-variable PF_WORKER_COUNT="2" PF_BATCH_METHOD="spawn"```.
+
+:::
+
+:::{tab-item} SDK
+:sync: SDK
+
+Specify environment variables when creating run. Example:
 
 ``` python
     pf = PFClient(
@@ -139,7 +195,6 @@ Note: Windows only supports spawn, Linux and macOS support both spawn and fork.
 
     flow = "web-classification"
     data = "web-classification/data.jsonl"
-    runtime = "example-runtime-ci"
 
     environment_variables = {"PF_WORKER_COUNT": "2", "PF_BATCH_METHOD": "spawn"}
 
@@ -147,12 +202,17 @@ Note: Windows only supports spawn, Linux and macOS support both spawn and fork.
     base_run = pf.run(
         flow=flow,
         data=data,
-        runtime=runtime,
         environment_variables=environment_variables,
     )
 ```
 
-3. If you are using VSCode Extension to submit batch run, you can configure environment variables in the ```batch_run_create.yaml```. Example:
+:::
+
+:::{tab-item} VS Code Extension
+:sync: VS Code Extension
+
+VSCode Extension supports specifying environment variables only when submitting batch runs.
+Specify environment variables in ```batch_run_create.yaml```. Example:
 
 ``` yaml
     name: flow_name
@@ -166,3 +226,10 @@ Note: Windows only supports spawn, Linux and macOS support both spawn and fork.
         PF_WORKER_COUNT: "2"
         PF_BATCH_METHOD: "spawn"
 ```
+
+:::
+
+::::
+
+#### Priority
+The environment variables specified when submitting runs always takes precedence over the environment variables in the flow.dag.yaml file.

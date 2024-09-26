@@ -1,11 +1,17 @@
 import inspect
 
 import pytest
+from opentelemetry.trace.status import StatusCode
 
-from promptflow._core.generator_proxy import GeneratorProxy
-from promptflow._core.tracer import Tracer, _create_trace_from_function_call, _traced, trace
 from promptflow.connections import AzureOpenAIConnection
-from promptflow.contracts.trace import Trace, TraceType
+from promptflow.tracing import trace
+from promptflow.tracing._trace import _traced
+from promptflow.tracing._tracer import Tracer, _create_trace_from_function_call
+from promptflow.tracing.contracts.iterator_proxy import IteratorProxy
+from promptflow.tracing.contracts.trace import Trace, TraceType
+
+from ...process_utils import execute_function_in_subprocess
+from ...utils import prepare_memory_exporter
 
 
 def generator():
@@ -32,13 +38,8 @@ class TestTracer:
         # Assert that there is no active tracer instance after ending tracing
         assert Tracer.active_instance() is None
 
-        # Test the raise_ex argument of the end_tracing method
-        with pytest.raises(Exception):
-            # Try to end tracing again with raise_ex=True
-            Tracer.end_tracing(raise_ex=True)
-
         # Try to end tracing again with raise_ex=False
-        traces = Tracer.end_tracing(raise_ex=False)
+        traces = Tracer.end_tracing()
 
         # Assert that the traces are empty
         assert not traces
@@ -63,8 +64,8 @@ class TestTracer:
         Tracer.start_tracing("test_run_id")
         tracer = Tracer.active_instance()
 
-        trace1 = Trace("test1", inputs=[1, 2, 3], type=TraceType.TOOL)
-        trace2 = Trace("test2", inputs=[4, 5, 6], type=TraceType.TOOL)
+        trace1 = Trace("test1", inputs=[1, 2, 3], type=TraceType.FUNCTION)
+        trace2 = Trace("test2", inputs=[4, 5, 6], type=TraceType.FUNCTION)
 
         Tracer.push(trace1)
         assert tracer._traces == [trace1]
@@ -87,7 +88,7 @@ class TestTracer:
         for i in range(3):
             assert next(output) == i
 
-        assert isinstance(trace2.output, GeneratorProxy)
+        assert isinstance(trace2.output, IteratorProxy)
         assert trace2.error == {
             "message": str(error1),
             "type": type(error1).__qualname__,
@@ -105,14 +106,12 @@ class TestTracer:
 
         # test the push method with no active tracer
         Tracer.push(trace1)
-        # assert that the warning message is logged
-        assert "Try to push trace but no active tracer in current context." in caplog.text
 
     def test_unserializable_obj_to_serializable(self):
         # assert that the function returns a str object for unserializable objects
         assert Tracer.to_serializable(generator) == str(generator)
 
-    @pytest.mark.parametrize("obj", [({"name": "Alice", "age": 25}), ([1, 2, 3]), (GeneratorProxy(generator())), (42)])
+    @pytest.mark.parametrize("obj", [({"name": "Alice", "age": 25}), ([1, 2, 3]), (IteratorProxy(generator())), (42)])
     def test_to_serializable(self, obj):
         assert Tracer.to_serializable(obj) == obj
 
@@ -173,8 +172,8 @@ class TestCreateTraceFromFunctionCall:
         assert trace.name == "MyClass.my_method"
 
     def test_trace_type_can_be_set_correctly(self):
-        trace = _create_trace_from_function_call(func_with_no_parameters, trace_type=TraceType.TOOL)
-        assert trace.type == TraceType.TOOL
+        trace = _create_trace_from_function_call(func_with_no_parameters, trace_type=TraceType.FUNCTION)
+        assert trace.type == TraceType.FUNCTION
 
     def test_args_and_kwargs_are_filled_correctly(self):
         trace = _create_trace_from_function_call(
@@ -324,7 +323,7 @@ class TestTraced:
     @pytest.mark.parametrize("func", [sync_func, async_func])
     async def test_trace_type_can_be_set_correctly(self, func):
         Tracer.start_tracing("test_run_id")
-        traced_func = _traced(func, trace_type=TraceType.TOOL)
+        traced_func = _traced(func, trace_type=TraceType.FUNCTION)
 
         if inspect.iscoroutinefunction(traced_func):
             result = await traced_func(1)
@@ -337,7 +336,7 @@ class TestTraced:
         assert len(traces) == 1
         trace = traces[0]
         assert trace["name"] == func.__qualname__
-        assert trace["type"] == TraceType.TOOL
+        assert trace["type"] == TraceType.FUNCTION
 
 
 @trace
@@ -380,3 +379,24 @@ class TestTrace:
         assert trace["children"] == []
         assert isinstance(trace["start_time"], float)
         assert isinstance(trace["end_time"], float)
+
+
+@pytest.mark.unittest
+class TestOTelTracer:
+    def test_trace_func(self):
+        execute_function_in_subprocess(self.assert_test_func)
+
+    def assert_test_func(self):
+        memory_exporter = prepare_memory_exporter()
+        traced_func = trace(sync_func)
+        result = traced_func(1)
+        assert result == 1
+        span_list = memory_exporter.get_finished_spans()
+        assert len(span_list) == 1
+        span = span_list[0]
+        assert span.name == sync_func.__name__
+        assert span.attributes["framework"] == "promptflow"
+        assert span.attributes["span_type"] == TraceType.FUNCTION
+        assert span.attributes["function"] == sync_func.__name__
+        assert span.attributes["inputs"] == '{\n  "a": 1\n}'
+        assert span.status.status_code == StatusCode.OK

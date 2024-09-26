@@ -5,18 +5,25 @@
 	"dockerFile": "Dockerfile",
 
 	// Set *default* container specific settings.json values on container create.
-	"settings": {
-		"terminal.integrated.shell.linux": "/bin/bash"
+
+	// Configure tool-specific properties.
+	"customizations": {
+		// VS Code specific configuration
+		"vscode": {
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+			"ms-python.python",
+			"ms-toolsai.vscode-ai",
+			"ms-toolsai.jupyter",
+			"redhat.vscode-yaml",
+			"prompt-flow.prompt-flow"
+			]
+		},
+		
+		"settings": {
+			"terminal.integrated.shell.linux": "/bin/bash"
+		}
+
 	},
-
-	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [
-		"ms-python.python",
-		"ms-toolsai.vscode-ai",
-		"ms-toolsai.jupyter",
-		"redhat.vscode-yaml",
-		"prompt-flow.prompt-flow"
-	],
-
 	"runArgs": ["-v", "/var/run/docker.sock:/var/run/docker.sock"]
 }
